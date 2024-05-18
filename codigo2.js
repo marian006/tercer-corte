@@ -1,7 +1,16 @@
-const readline = require('readline');
+const readlineSync = require('readline-sync');
+
+
+class Pasajero {
+    constructor(nombre, edad, mascota) {
+        this.nombre = nombre;
+        this.edad = edad;
+        this.mascota = mascota;
+    }
+}
 
 class Vuelo {
-    constructor(origen, destino, costo, impuesto, promocion = false) {
+    constructor(origen, destino, costo, impuesto, promocion) {
         this.origen = origen;
         this.destino = destino;
         this.costo = costo;
@@ -10,178 +19,151 @@ class Vuelo {
     }
 }
 
-class Pasajero {
-    constructor(nombre, edad, mascota = false, infante = false) {
-        this.nombre = nombre;
-        this.edad = edad;
-        this.mascota = mascota;
-        this.infante = infante;
+class NodoVuelo {
+    constructor(vuelo) {
+        this.valor = vuelo;
+        this.siguiente = null;
     }
 }
 
-class Nodo {
-    constructor(data) {
-        this.data = data;
-        this.next = null;
-    }
-}
-
-class ListaEnlazada {
+class ListaVuelos {
     constructor() {
-        this.head = null;
+        this.cabeza = null;
     }
 
-    insertar(data) {
-        const nuevoNodo = new Nodo(data);
-        if (!this.head) {
-            this.head = nuevoNodo;
+    insertar(vuelo) {
+        const nuevoNodo = new NodoVuelo(vuelo);
+
+        if (this.cabeza == null) {
+            this.cabeza = nuevoNodo;
         } else {
-            let current = this.head;
-            while (current.next) {
-                current = current.next;
+            let nodoTmp = this.cabeza;
+            while (nodoTmp.siguiente != null) {
+                nodoTmp = nodoTmp.siguiente;
             }
-            current.next = nuevoNodo;
+            nodoTmp.siguiente = nuevoNodo;
         }
     }
 
-    *[Symbol.iterator]() {
-        let current = this.head;
-        while (current) {
-            yield current.data;
-            current = current.next;
+    mostrarTodosLosVuelos() {
+        if (this.cabeza == null) {
+            console.log('No hay vuelos para mostrar, no hay nodos en la lista');
+        } else {
+            let nodoTmp = this.cabeza;
+            let i = 1;
+            while (nodoTmp != null) {
+                console.log(`Datos del vuelo numero ${i}`);
+                console.log(`Origen: ${nodoTmp.valor.origen}`);
+                console.log(`Destino: ${nodoTmp.valor.destino}`);
+                console.log(`Costo: ${nodoTmp.valor.costo}`);
+                console.log(`Impuesto: ${nodoTmp.valor.impuesto}`);
+                console.log(`Promoción: ${nodoTmp.valor.promocion}`);
+                nodoTmp = nodoTmp.siguiente;
+                i++;
+            }
         }
+    }
+
+    calcularEstadisticas(costoDulce, infantesRegistrados) {
+        let valorTotalTiquetes = 0;
+        let destinosPreferidos = {};
+        let dineroMascotas = 0;
+        let cantidadInfantes = infantesRegistrados.length;
+        let costoTotalDulces = cantidadInfantes * costoDulce;
+
+        let nodoTmp = this.cabeza;
+        while (nodoTmp != null) {
+            let vuelo = nodoTmp.valor;
+            valorTotalTiquetes += vuelo.costo;
+
+            dineroMascotas += vuelo.promocion ? 30 : 0;
+
+            if (destinosPreferidos.hasOwnProperty(vuelo.destino)) {
+                destinosPreferidos[vuelo.destino]++;
+            } else {
+                destinosPreferidos[vuelo.destino] = 1;
+            }
+
+            nodoTmp = nodoTmp.siguiente;
+        }
+
+        const destinoPreferido = Object.keys(destinosPreferidos).reduce((a, b) => destinosPreferidos[a] > destinosPreferidos[b] ? a : b);
+
+        console.log(`1. Valor total recaudado por concepto de venta de tiquetes: ${valorTotalTiquetes.toFixed(2)} pesos`);
+        console.log(`2. Destino preferido de las personas: ${destinoPreferido}`);
+        console.log(`3. Dinero recaudado por concepto de transporte de mascotas: ${dineroMascotas.toFixed(2)} pesos`);
+
+        const destinoConsulta = readlineSync.question('Ingrese el destino para calcular el impuesto total: ');
+        const impuestoTotalDestino = this.calcularImpuestoTotal(destinoConsulta);
+        console.log(`4. Impuesto total para ${destinoConsulta}: ${impuestoTotalDestino.toFixed(2)} pesos`);
+
+        console.log(`5. Cantidad de infantes que han viajado: ${cantidadInfantes}`);
+        console.log(`6. Costo total de los dulces brindados a los infantes: ${costoTotalDulces.toFixed(2)} pesos`);
+    }
+
+    calcularImpuestoTotal(destino) {
+        let impuestoTotal = 0;
+        let nodoTmp = this.cabeza;
+        while (nodoTmp != null) {
+            if (nodoTmp.valor.destino === destino) {
+                impuestoTotal += nodoTmp.valor.costo * nodoTmp.valor.impuesto;
+            }
+            nodoTmp = nodoTmp.siguiente;
+        }
+        return impuestoTotal;
     }
 }
 
 class SistemaReservas {
     constructor() {
-        this.vuelos = new ListaEnlazada();
-        this.pasajeros = new ListaEnlazada();
-        this.impuestosPorDestino = {};
+        this.listaVuelos = new ListaVuelos();
+        this.pasajeros = [];
+        this.infantesRegistrados = [];
     }
 
-    async agregarVuelo() {
-        const origen = await pregunta("Ingrese el origen del vuelo: ");
-        const destino = await pregunta("Ingrese el destino del vuelo: ");
-        const costo = parseFloat(await pregunta("Ingrese el costo del vuelo: "));
-        const impuesto = parseFloat(await pregunta("Ingrese el impuesto del vuelo: "));
-        const promocion = (await pregunta("¿El vuelo está en promoción? (Sí/No): ")).toLowerCase() === "si";
+    iniciar() {
+        const costoDulce = parseFloat(readlineSync.question('Ingrese el costo de los dulces para los infantes: '));
 
-        const vuelo = new Vuelo(origen, destino, costo, impuesto, promocion);
-        this.vuelos.insertar(vuelo);
-    }
+        const cantidadTotalPasajeros = parseInt(readlineSync.question('Ingrese la cantidad total de pasajeros (adultos e infantes): '));
+        console.log(`Se van a registrar ${cantidadTotalPasajeros} pasajeros.`);
 
-    async agregarPasajero() {
-        const nombre = await pregunta("Ingrese el nombre del pasajero: ");
-        const edad = parseInt(await pregunta("Ingrese la edad del pasajero: "));
-        const mascota = (await pregunta("¿El pasajero lleva mascota? (Sí/No): ")).toLowerCase() === "si";
-        const infante = (await pregunta("¿El pasajero es un infante? (Sí/No): ")).toLowerCase() === "si";
-        const destino = infante ? "" : await pregunta("Ingrese el destino del pasajero: ");
-
-        const pasajero = new Pasajero(nombre, edad, mascota, infante, destino);
-        this.pasajeros.insertar(pasajero);
-    }
-
-    async calcularTotalRecaudado() {
-        let totalRecaudado = 0;
-        for (const vuelo of this.vuelos) {
-            totalRecaudado += vuelo.costo;
-            if (vuelo.promocion) {
-                totalRecaudado -= vuelo.costo * 0.1;
-            }
-        }
-        return totalRecaudado;
-    }
-
-    destinoPreferido() {
-        const destinos = {};
-        for (const pasajero of this.pasajeros) {
+        for (let i = 0; i < cantidadTotalPasajeros; i++) {
+            console.log(`\nRegistro de informacion del pasajero ${i + 1}:`);
+            const pasajero = this.obtenerDatosPasajero();
+            this.pasajeros.push(pasajero);
             if (pasajero.edad <= 12) {
-                continue; 
-            }
-            destinos[pasajero.destino] = (destinos[pasajero.destino] || 0) + 1;
-        }
-        return Object.keys(destinos).reduce((a, b) => destinos[a] > destinos[b] ? a : b);
-    }
-
-    calcularTotalImpuestosDestino(destino) {
-        let totalImpuestos = 0;
-        for (const vuelo of this.vuelos) {
-            if (vuelo.destino === destino) {
-                totalImpuestos += vuelo.impuesto;
+                this.infantesRegistrados.push(pasajero);
             }
         }
-        return totalImpuestos;
-    }
 
-    recaudacionPorMascotas() {
-        let totalMascotas = 0;
-        for (const pasajero of this.pasajeros) {
-            if (pasajero.mascota) {
-                totalMascotas += pasajero.impuesto; // Suponiendo que las mascotas también pagan impuestos
-            }
+        let continuarRegistroVuelos = true;
+        while (continuarRegistroVuelos) {
+            console.log('\nRegistro de información del vuelo:');
+            this.listaVuelos.insertar(this.obtenerDatosVuelo());
+            continuarRegistroVuelos = readlineSync.keyInYNStrict('Desea registrar otro vuelo?');
         }
-        return totalMascotas;
+
+        console.log('--- Informacion de pasajeros y vuelos registrada con exito. ---');
+        console.log('\n--- Estadisticas ---');
+        this.listaVuelos.calcularEstadisticas(costoDulce, this.infantesRegistrados);
     }
 
-    contarInfantes() {
-        let totalInfantes = 0;
-        for (const pasajero of this.pasajeros) {
-            if (pasajero.infante) {
-                totalInfantes++;
-            }
-        }
-        return totalInfantes;
+    obtenerDatosPasajero() {
+        const nombre = readlineSync.question('Nombre del pasajero: ');
+        const edad = parseInt(readlineSync.question('Edad del pasajero: '));
+        const mascota = readlineSync.keyInYNStrict('El pasajero lleva mascota?');
+        return new Pasajero(nombre, edad, mascota);
     }
 
-    costoTotalDulcesInfantes() {
-        const costoDulceInfante = 1; 
-        return this.contarInfantes() * costoDulceInfante;
+    obtenerDatosVuelo() {
+        const origen = readlineSync.question('Origen del vuelo: ');
+        const destino = readlineSync.question('Destino del vuelo: ');
+        const costo = parseFloat(readlineSync.question('Costo del vuelo: '));
+        const impuesto = parseFloat(readlineSync.question('Impuesto del destino (en porcentaje): ')) / 100;
+        const promocion = readlineSync.keyInYNStrict('El vuelo tiene promocion?');
+        return new Vuelo(origen, destino, costo, impuesto, promocion);
     }
 }
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-function pregunta(pregunta) {
-    return new Promise((resolve) => {
-        rl.question(pregunta, (respuesta) => {
-            resolve(respuesta);
-        });
-    });
-}
-
-// Ejemplo de uso:
-
-const sistema = new SistemaReservas();
-
-async function iniciarSistema() {
-    const opcion = parseInt(await pregunta("Seleccione una opción:\n1. Agregar vuelo\n2. Agregar pasajero\n3. Calcular total recaudado\n4. Destino preferido\n5. Calcular total impuestos por destino\n6. Recaudación por mascotas\n7. Contar infantes\n8. Costo total de dulces para infantes\nOpción: "));
-
-    switch (opcion) {
-        case 1:
-            await sistema.agregarVuelo();
-            break;
-        case 2:
-            await sistema.agregarPasajero();
-            break;
-        case 3:
-            console.log("Total recaudado:", await sistema.calcularTotalRecaudado());
-            break;
-        case 4:
-            console.log("Destino preferido:", sistema.destinoPreferido());
-            break;
-        case 5:
-            const destinoImpuestos = await pregunta("Ingrese el destino para calcular los impuestos: ");
-            console.log("Total impuestos para", destinoImpuestos + ":", sistema.calcularTotalImpuestosDestino(destinoImpuestos));
-            break;
-        case 6:
-            console.log("Recaudación por transporte de mascotas:", sistema.recaudacionPorMascotas());
-            break;
-        case 7:
-            console.log("Cantidad de infantes:", sistema.contarInfantes());
-            break;
-        case 8:
-            console.log("Costo total de dulces para infantes:", sistema.costoTotalDul
+const sistemaReservas = new SistemaReservas();
+sistemaReservas.iniciar();
