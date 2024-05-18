@@ -97,7 +97,7 @@ class SistemaReservas {
         const destinos = {};
         for (const pasajero of this.pasajeros) {
             if (pasajero.edad <= 12) {
-                continue; // Infantes no influyen en el destino preferido
+                continue; 
             }
             destinos[pasajero.destino] = (destinos[pasajero.destino] || 0) + 1;
         }
@@ -135,7 +135,7 @@ class SistemaReservas {
     }
 
     costoTotalDulcesInfantes() {
-        const costoDulceInfante = 1; // Suponiendo que el costo del dulce es constante
+        const costoDulceInfante = 1; 
         return this.contarInfantes() * costoDulceInfante;
     }
 }
